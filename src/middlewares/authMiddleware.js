@@ -1,4 +1,4 @@
-const admin = require("../config/firebaseAdmin");
+const { getFirebaseAdmin } = require("../config/firebaseAdmin");
 const User = require("../models/User");
 
 const protect = async (req, res, next) => {
@@ -14,6 +14,7 @@ const protect = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
+    const admin = getFirebaseAdmin();
     const decodedToken = await admin.auth().verifyIdToken(token);
 
     let user = await User.findOne({ firebaseUid: decodedToken.uid });
@@ -29,6 +30,13 @@ const protect = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
+    if (error.message && error.message.startsWith("FIREBASE_CONFIG_ERROR:")) {
+      return res.status(500).json({
+        success: false,
+        message: error.message.replace("FIREBASE_CONFIG_ERROR: ", ""),
+      });
+    }
+
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
