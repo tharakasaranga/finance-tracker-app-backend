@@ -31,7 +31,7 @@ const getFirebaseProjectId = () => {
 
   if (!projectId) {
     throw new Error(
-      "FIREBASE_CONFIG_ERROR: Set FIREBASE_PROJECT_ID in backend/.env."
+      "FIREBASE_CONFIG_ERROR: Set FIREBASE_PROJECT_ID in backend/.env.",
     );
   }
 
@@ -52,8 +52,8 @@ const fetchFirebaseCerts = () => {
         if (res.statusCode !== 200) {
           reject(
             new Error(
-              `FIREBASE_TOKEN_ERROR: Failed to fetch Firebase public certificates (${res.statusCode}).`
-            )
+              `FIREBASE_TOKEN_ERROR: Failed to fetch Firebase public certificates (${res.statusCode}).`,
+            ),
           );
           return;
         }
@@ -70,8 +70,8 @@ const fetchFirebaseCerts = () => {
           } catch (error) {
             reject(
               new Error(
-                "FIREBASE_TOKEN_ERROR: Failed to parse Firebase public certificates."
-              )
+                "FIREBASE_TOKEN_ERROR: Failed to parse Firebase public certificates.",
+              ),
             );
           }
         });
@@ -79,8 +79,8 @@ const fetchFirebaseCerts = () => {
       .on("error", () => {
         reject(
           new Error(
-            "FIREBASE_TOKEN_ERROR: Unable to reach Firebase public certificates."
-          )
+            "FIREBASE_TOKEN_ERROR: Unable to reach Firebase public certificates.",
+          ),
         );
       });
   });
@@ -161,7 +161,8 @@ const protect = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
 
     const decodedToken = await verifyFirebaseToken(token);
-    const firebaseUid = decodedToken.uid || decodedToken.user_id || decodedToken.sub;
+    const firebaseUid =
+      decodedToken.uid || decodedToken.user_id || decodedToken.sub;
 
     if (!firebaseUid) {
       return res.status(401).json({
