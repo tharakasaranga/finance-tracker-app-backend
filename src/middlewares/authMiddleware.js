@@ -104,12 +104,7 @@ const verifyFirebaseToken = async (token) => {
   try {
     const admin = getFirebaseAdmin();
     return await admin.auth().verifyIdToken(token, true);
-  } catch (error) {
-    if (error.message && error.message.startsWith("FIREBASE_CONFIG_ERROR:")) {
-    } else {
-      throw error;
-    }
-  }
+  } catch (_adminError) {}
 
   const tokenParts = token.split(".");
 
