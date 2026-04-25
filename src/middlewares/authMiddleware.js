@@ -29,14 +29,7 @@ const sanitizeEnvValue = (value) => {
 
 const getFirebaseProjectId = () => {
   const projectId = sanitizeEnvValue(process.env.FIREBASE_PROJECT_ID);
-
-  if (!projectId) {
-    throw new Error(
-      "FIREBASE_CONFIG_ERROR: Set FIREBASE_PROJECT_ID in backend/.env.",
-    );
-  }
-
-  return projectId;
+  return projectId || null;
 };
 
 const base64UrlDecode = (value) => {
@@ -113,10 +106,22 @@ const verifyFirebaseToken = async (token) => {
   }
 
   const [headerPart, payloadPart, signaturePart] = tokenParts;
-  const header = JSON.parse(base64UrlDecode(headerPart).toString("utf8"));
-  const payload = JSON.parse(base64UrlDecode(payloadPart).toString("utf8"));
+  let header;
+  let payload;
 
-  const projectId = getFirebaseProjectId();
+  try {
+    header = JSON.parse(base64UrlDecode(headerPart).toString("utf8"));
+    payload = JSON.parse(base64UrlDecode(payloadPart).toString("utf8"));
+  } catch (_parseError) {
+    throw new Error("FIREBASE_TOKEN_ERROR: Token payload is invalid.");
+  }
+
+  const configuredProjectId = getFirebaseProjectId();
+  const projectId = configuredProjectId || payload.aud;
+
+  if (!projectId) {
+    throw new Error("FIREBASE_TOKEN_ERROR: Token audience is invalid.");
+  }
 
   if (header.alg !== "RS256" || !header.kid) {
     throw new Error("FIREBASE_TOKEN_ERROR: Token headers are invalid.");
@@ -154,7 +159,8 @@ const verifyFirebaseToken = async (token) => {
 };
 
 const resolveUserFromToken = async (decodedToken) => {
-  const firebaseUid = decodedToken.uid || decodedToken.user_id || decodedToken.sub;
+  const firebaseUid =
+    decodedToken.uid || decodedToken.user_id || decodedToken.sub;
 
   if (!firebaseUid) {
     throw new Error("FIREBASE_TOKEN_ERROR: Token subject is missing.");
