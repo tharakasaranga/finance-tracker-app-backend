@@ -153,6 +153,52 @@ const verifyFirebaseToken = async (token) => {
   return payload;
 };
 
+const resolveUserFromToken = async (decodedToken) => {
+  const firebaseUid = decodedToken.uid || decodedToken.user_id || decodedToken.sub;
+
+  if (!firebaseUid) {
+    throw new Error("FIREBASE_TOKEN_ERROR: Token subject is missing.");
+  }
+
+  const email = decodedToken.email || `${firebaseUid}@firebase.local`;
+  const name = decodedToken.name || "User";
+
+  let user = await User.findOne({ firebaseUid });
+
+  if (user) {
+    if (decodedToken.email && user.email !== decodedToken.email) {
+      user.email = decodedToken.email;
+      await user.save();
+    }
+
+    if (decodedToken.name && user.name !== decodedToken.name) {
+      user.name = decodedToken.name;
+      await user.save();
+    }
+
+    return user;
+  }
+
+  const existingByEmail = await User.findOne({ email });
+
+  if (existingByEmail) {
+    existingByEmail.firebaseUid = firebaseUid;
+
+    if (decodedToken.name && existingByEmail.name !== decodedToken.name) {
+      existingByEmail.name = decodedToken.name;
+    }
+
+    await existingByEmail.save();
+    return existingByEmail;
+  }
+
+  return await User.create({
+    firebaseUid,
+    name,
+    email,
+  });
+};
+
 const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -164,28 +210,17 @@ const protect = async (req, res, next) => {
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.split(" ")[1]?.trim();
 
-    const decodedToken = await verifyFirebaseToken(token);
-    const firebaseUid =
-      decodedToken.uid || decodedToken.user_id || decodedToken.sub;
-
-    if (!firebaseUid) {
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Invalid or expired token",
+        message: "Not authorized, token missing",
       });
     }
 
-    let user = await User.findOne({ firebaseUid });
-
-    if (!user) {
-      user = await User.create({
-        firebaseUid,
-        name: decodedToken.name || "User",
-        email: decodedToken.email || `${firebaseUid}@firebase.local`,
-      });
-    }
+    const decodedToken = await verifyFirebaseToken(token);
+    const user = await resolveUserFromToken(decodedToken);
 
     req.user = user;
     next();
@@ -204,9 +239,16 @@ const protect = async (req, res, next) => {
       });
     }
 
-    return res.status(401).json({
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "User identity conflict. Please log out and log in again.",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
-      message: "Invalid or expired token",
+      message: "Authentication process failed",
     });
   }
 };
