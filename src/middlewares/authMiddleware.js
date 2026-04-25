@@ -1,6 +1,7 @@
 const https = require("https");
 const crypto = require("crypto");
 const User = require("../models/User");
+const { getFirebaseAdmin } = require("../config/firebaseAdmin");
 
 const FIREBASE_CERTS_URL =
   "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
@@ -100,6 +101,16 @@ const getFirebaseCerts = async () => {
 };
 
 const verifyFirebaseToken = async (token) => {
+  try {
+    const admin = getFirebaseAdmin();
+    return await admin.auth().verifyIdToken(token, true);
+  } catch (error) {
+    if (error.message && error.message.startsWith("FIREBASE_CONFIG_ERROR:")) {
+    } else {
+      throw error;
+    }
+  }
+
   const tokenParts = token.split(".");
 
   if (tokenParts.length !== 3) {
